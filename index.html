@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Chamada - Feiras Livres Municipais</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .feira-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .feira-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .feira-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #059669, #10b981);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .feira-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .presente-btn.active {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        
+        .falta-btn.active {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+        }
+        
+        .hidden-section {
+            display: none;
+        }
+        
+        .active-section {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .alerta-3-faltas {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .box-badge {
+            background: #e0f2fe;
+            color: #0369a1;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+        }
+        
+        .dia-semana {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255,255,255,0.9);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #059669;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .btn-voltar {
+            transition: all 0.2s ease;
+        }
+        
+        .btn-voltar:hover {
+            transform: translateX(-4px);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalSlide 0.3s ease;
+        }
+
+        @keyframes modalSlide {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .feirante-vinculado {
+            background: #f0fdf4;
+            border: 2px solid #86efac;
+        }
+
+        .search-results {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="gradient-bg text-white shadow-lg sticky top-0 z-40">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-store text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Chamada Feiras Livres</h1>
+                        <p class="text-xs text-white/80">Gestão Municipal Integrada</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="showSection('dashboard')" class="nav-btn p-2 rounded-lg hover:bg-white/20 transition" title="Dashboard">
+                        <i class="fas fa-chart-pie text-lg"></i>
+                    </button>
+                    <button onclick="showSection('cadastro-feirantes')" class="nav-btn p-2 rounded-lg hover:bg-white/20 transition" title="Cadastro de Feirantes">
+                        <i class="fas fa-users text-lg"></i>
+                    </button>
+                    <button onclick="showSection('selecionar-feira')" class="nav-btn p-2 rounded-lg hover:bg-white/20 transition" title="Iniciar Chamada">
+                        <i class="fas fa-play-circle text-lg"></i>
+                    </button>
+                    <button onclick="showSection('gerenciar-feiras')" class="nav-btn p-2 rounded-lg hover:bg-white/20 transition" title="Gerenciar Feiras">
+                        <i class="fas fa-cog text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6 pb-24">
+        
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="active-section">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-2xl p-5 shadow-sm card-hover border-l-4 border-emerald-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-gray-500 text-xs font-medium uppercase">Feirantes Cadastrados</p>
+                            <h3 class="text-2xl font-bold text-gray-800 mt-1" id="dash-total-feirantes">0</h3>
+                        </div>
+                        <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-users text-emerald-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 shadow-sm card-hover border-l-4 border-blue-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-gray-500 text-xs font-medium uppercase">Total de Feiras</p>
+                            <h3 class="text-2xl font-bold text-gray-800 mt-1" id="dash-total-feiras">0</h3>
+                        </div>
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-store text-blue-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 shadow-sm card-hover border-l-4 border-purple-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-gray-500 text-xs font-medium uppercase">Presentes Hoje</p>
+                            <h3 class="text-2xl font-bold text-gray-800 mt-1" id="dash-presentes">0</h3>
+                        </div>
+                        <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-check text-purple-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 shadow-sm card-hover border-l-4 border-red-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-gray-500 text-xs font-medium uppercase">Faltas Hoje</p>
+                            <h3 class="text-2xl font-bold text-gray-800 mt-1" id="dash-faltas">0</h3>
+                        </div>
+                        <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-times text-red-600"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Menu Principal</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button onclick="showSection('cadastro-feirantes')" class="p-4 bg-blue-500 text-white rounded-xl hover:shadow-lg transition text-center transform hover:scale-105">
+                        <i class="fas fa-user-plus text-2xl mb-2 block"></i>
+                        <span class="font-medium text-sm">Cadastrar Feirante</span>
+                    </button>
+                    <button onclick="showSection('selecionar-feira')" class="p-4 bg-emerald-500 text-white rounded-xl hover:shadow-lg transition text-center transform hover:scale-105">
+                        <i class="fas fa-play-circle text-2xl mb-2 block"></i>
+                        <span class="font-medium text-sm">Iniciar Chamada</span>
+                    </button>
+                    <button onclick="showSection('consulta-feirantes')" class="p-4 bg-purple-500 text-white rounded-xl hover:shadow-lg transition text-center transform hover:scale-105">
+                        <i class="fas fa-search text-2xl mb-2 block"></i>
+                        <span class="font-medium text-sm">Consultar Feirantes</span>
+                    </button>
+                    <button onclick="exportarRelatorio()" class="p-4 bg-orange-500 text-white rounded-xl hover:shadow-lg transition text-center transform hover:scale-105">
+                        <i class="fas fa-file-excel text-2xl mb-2 block"></i>
+                        <span class="font-medium text-sm">Exportar Dados</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resumo por Feira -->
+            <div class="bg-white rounded-2xl shadow-sm p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">Status das Feiras</h3>
+                    <button onclick="showSection('gerenciar-feiras')" class="text-emerald-600 hover:text-emerald-700 font-medium text-sm">
+                        <i class="fas fa-plus mr-1"></i>Nova Feira
+                    </button>
+                </div>
+                <div id="resumo-feiras-dashboard" class="space-y-3">
+                    <p class="text-gray-400 text-center py-4">Nenhuma feira cadastrada</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cadastro de Feirantes Section -->
+        <section id="cadastro-feirantes" class="hidden-section">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Cadastro de Feirantes</h2>
+                        <p class="text-gray-500">Cadastro único municipal. O mesmo feirante pode ser vinculado a múltiplas feiras.</p>
+                    </div>
+                    <button onclick="showSection('dashboard')" class="btn-voltar flex items-center space-x-2 text-gray-600 hover:text-emerald-600 font-medium">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Voltar</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">
+                        <i class="fas fa-user-plus text-emerald-500 mr-2"></i>
+                        Dados Pessoais
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
+                            <input type="text" id="cad-nome" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Nome completo do feirante">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">CPF *</label>
+                            <input type="text" id="cad-cpf" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="000.000.000-00" maxlength="14" oninput="formatarCPF(this)">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Título de Eleitor</label>
+                            <input type="text" id="cad-titulo" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="000000000000">
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Endereço Completo</label>
+                            <input type="text" id="cad-endereco" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Rua, número, bairro, cidade, estado">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Telefone *</label>
+                            <input type="text" id="cad-telefone" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="(00) 00000-0000" maxlength="15" oninput="formatarTelefone(this)">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                            <input type="email" id="cad-email" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="email@exemplo.com">
+                        </div>
+                    </div>
+
+                    <!-- Veículo -->
+                    <div class="border-t border-gray-100 pt-4 mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Possui Veículo?</label>
+                        <div class="flex space-x-4 mb-3">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="veiculo" value="nao" checked onchange="toggleVeiculo(false)" class="w-4 h-4 text-emerald-600">
+                                <span>Não</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="veiculo" value="sim" onchange="toggleVeiculo(true)" class="w-4 h-4 text-emerald-600">
+                                <span>Sim</span>
+                            </label>
+                        </div>
+                        <div id="veiculo-placa-container" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Placa do Veículo</label>
+                            <input type="text" id="cad-placa" class="w-full md:w-1/2 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase" placeholder="ABC-1234 ou ABC1D23" maxlength="8">
+                        </div>
+                    </div>
+
+                    <!-- Vinculação às Feiras -->
+                    <div class="border-t border-gray-100 pt-4 mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Vincular a Feiras (Opcional)</label>
+                        <p class="text-xs text-gray-500 mb-3">Selecione as feiras onde este feirante atua. Você pode vincular depois também.</p>
+                        <div id="checkbox-feiras" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                            <p class="text-gray-400 text-sm">Nenhuma feira cadastrada. Crie uma feira primeiro.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-3">
+                        <button onclick="salvarFeirante()" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition">
+                            <i class="fas fa-save mr-2"></i>Salvar Feirante
+                        </button>
+                        <button onclick="limparFormularioFeirante()" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition">
+                            <i class="fas fa-eraser mr-2"></i>Limpar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Consulta de Feirantes Section -->
+        <section id="consulta-feirantes" class="hidden-section">
+            <div class="max-w-6xl mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Consulta de Feirantes</h2>
+                        <p class="text-gray-500">Pesquise e gerencie todos os feirantes cadastrados</p>
+                    </div>
+                    <button onclick="showSection('dashboard')" class="btn-voltar flex items-center space-x-2 text-gray-600 hover:text-emerald-600 font-medium">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Voltar</span>
+                    </button>
+                </div>
+
+                <!-- Search -->
+                <div class="bg-white rounded-2xl shadow-sm p-4 mb-6">
+                    <div class="flex gap-4">
+                        <div class="flex-1 relative">
+                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" id="consulta-search" placeholder="Buscar por nome, CPF, telefone ou placa..." 
+                                   class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                   onkeyup="consultarFeirantes()">
+                        </div>
+                        <select id="consulta-filter" onchange="consultarFeirantes()" class="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                            <option value="todos">Todos</option>
+                            <option value="com-veiculo">Com Veículo</option>
+                            <option value="sem-veiculo">Sem Veículo</option>
+                            <option value="vinculados">Vinculados a Feiras</option>
+                            <option value="nao-vinculados">Não Vinculados</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="consulta-resultados" class="space-y-3">
+                    <p class="text-gray-400 text-center py-8">Use a busca acima para encontrar feirantes</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Selecionar Feira Section -->
+        <section id="selecionar-feira" class="hidden-section">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Selecione a Feira</h2>
+                <p class="text-gray-500">Escolha qual feira deseja realizar a chamada de presença</p>
+            </div>
+
+            <!-- Grid de Feiras -->
+            <div id="grid-feiras" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Dynamic content -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-feiras" class="hidden text-center py-12">
+                <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-store-slash text-4xl text-gray-400"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-600 mb-2">Nenhuma feira cadastrada</h3>
+                <p class="text-gray-400 mb-4">Crie uma feira primeiro para iniciar a chamada</p>
+                <button onclick="showSection('gerenciar-feiras')" class="px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition font-medium">
+                    <i class="fas fa-plus mr-2"></i>Criar Feira
+                </button>
+            </div>
+        </section>
+
+        <!-- Gerenciar Feiras Section -->
+        <section id="gerenciar-feiras" class="hidden-section">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Gerenciar Feiras</h2>
+                        <p class="text-gray-500">Crie e gerencie as feiras do município</p>
+                    </div>
+                    <button onclick="showSection('dashboard')" class="btn-voltar flex items-center space-x-2 text-gray-600 hover:text-emerald-600 font-medium">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Voltar</span>
+                    </button>
+                </div>
+
+                <!-- Criar Nova Feira -->
+                <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">
+                        <i class="fas fa-plus-circle text-emerald-500 mr-2"></i>
+                        Criar Nova Feira
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Feira *</label>
+                            <input type="text" id="nova-feira-nome" placeholder="Ex: TERMINAL POPULAR" 
+                                   class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Dia da Semana *</label>
+                            <select id="nova-feira-dia" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="">Selecione...</option>
+                                <option value="SEGUNDA">Segunda-feira</option>
+                                <option value="TERÇA">Terça-feira</option>
+                                <option value="QUARTA">Quarta-feira</option>
+                                <option value="QUINTA">Quinta-feira</option>
+                                <option value="SEXTA">Sexta-feira</option>
+                                <option value="SÁBADO">Sábado</option>
+                                <option value="DOMINGO">Domingo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="criarNovaFeira()" class="w-full py-3 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition">
+                        <i class="fas fa-plus mr-2"></i>Criar Feira
+                    </button>
+                </div>
+
+                <!-- Lista de Feiras -->
+                <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">
+                        <i class="fas fa-list text-blue-500 mr-2"></i>
+                        Feiras Cadastradas
+                    </h3>
+                    <div id="lista-feiras-gerenciamento" class="space-y-3">
+                        <p class="text-gray-400 text-center py-4">Nenhuma feira cadastrada</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Chamada Section -->
+        <section id="chamada" class="hidden-section">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-6">
+                <button onclick="showSection('selecionar-feira')" class="btn-voltar flex items-center space-x-2 text-gray-600 hover:text-emerald-600 font-medium">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Voltar para seleção</span>
+                </button>
+                <div class="text-right">
+                    <h2 class="text-2xl font-bold text-gray-800" id="feira-atual-nome">Nome da Feira</h2>
+                    <p class="text-gray-500 text-sm" id="data-chamada-display"></p>
+                </div>
+            </div>
+
+            <!-- Data e Ações -->
+            <div class="bg-white rounded-2xl shadow-sm p-4 mb-6">
+                <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <label class="text-sm text-gray-600 font-medium">Data:</label>
+                        <input type="date" id="data-chamada" class="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" onchange="mudarDataChamada()">
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="abrirModalVincular()" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium">
+                            <i class="fas fa-user-plus mr-2"></i>Vincular Feirante
+                        </button>
+                        <button onclick="marcarTodos('presente')" class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition text-sm font-medium">
+                            <i class="fas fa-check mr-2"></i>Todos Presentes
+                        </button>
+                        <button onclick="marcarTodos('falta')" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition text-sm font-medium">
+                            <i class="fas fa-times mr-2"></i>Todos Faltas
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="bg-white rounded-2xl shadow-sm p-4 mb-6">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1 relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="search-feirante" placeholder="Buscar por nome, box ou segmento..." 
+                               class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                               onkeyup="filtrarFeirantes()">
+                    </div>
+                    <select id="filter-segmento" onchange="filtrarFeirantes()" class="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                        <option value="todos">Todos os Segmentos</option>
+                    </select>
+                    <select id="filter-status" onchange="filtrarFeirantes()" class="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                        <option value="todos">Todos os Status</option>
+                        <option value="presente">Presente (P)</option>
+                        <option value="falta">Falta (F)</option>
+                        <option value="afastado">Afastado</option>
+                        <option value="nao-registrado">Não Registrado</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Lista de Feirantes Vinculados -->
+            <div id="lista-feirantes" class="space-y-3">
+                <!-- Dynamic content -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal: Vincular Feirante à Feira -->
+    <div id="modal-vincular" class="modal">
+        <div class="modal-content p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Vincular Feirante à Feira</h3>
+                <button onclick="fecharModal('modal-vincular')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Buscar Feirante</label>
+                <input type="text" id="modal-search-feirante" placeholder="Digite nome ou CPF..." 
+                       class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                       onkeyup="buscarFeirantesParaVincular()">
+            </div>
+
+            <div id="modal-feirantes-encontrados" class="search-results space-y-2 mb-4">
+                <!-- Results -->
+            </div>
+
+            <div id="modal-dados-vinculo" class="hidden border-t border-gray-100 pt-4">
+                <h4 class="font-medium text-gray-800 mb-3">Dados na Feira</h4>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Box(s)</label>
+                        <input type="text" id="vinculo-box" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="Ex: 1, 2, 3">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Segmento</label>
+                        <input type="text" id="vinculo-segmento" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="Ex: HORTIFRUTI">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-xs text-gray-600 mb-1">Observações</label>
+                    <input type="text" id="vinculo-obs" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="Afastamento, etc.">
+                </div>
+                <button onclick="confirmarVinculacao()" class="w-full py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition">
+                    <i class="fas fa-link mr-2"></i>Vincular à Feira
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Editar Feirante -->
+    <div id="modal-editar" class="modal">
+        <div class="modal-content p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Editar Cadastro do Feirante</h3>
+                <button onclick="fecharModal('modal-editar')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <input type="hidden" id="edit-id">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                    <input type="text" id="edit-nome" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                    <input type="text" id="edit-cpf" class="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50" readonly>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Título de Eleitor</label>
+                    <input type="text" id="edit-titulo" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
+                    <input type="text" id="edit-endereco" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                    <input type="text" id="edit-telefone" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" maxlength="15" oninput="formatarTelefone(this)">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                    <input type="email" id="edit-email" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+            </div>
+
+            <div class="border-t border-gray-100 pt-4 mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Possui Veículo?</label>
+                <div class="flex space-x-4 mb-3">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="edit-veiculo" value="nao" onchange="toggleEditVeiculo(false)" class="w-4 h-4 text-emerald-600">
+                        <span>Não</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="edit-veiculo" value="sim" onchange="toggleEditVeiculo(true)" class="w-4 h-4 text-emerald-600">
+                        <span>Sim</span>
+                    </label>
+                </div>
+                <div id="edit-veiculo-placa-container" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Placa</label>
+                    <input type="text" id="edit-placa" class="w-full md:w-1/2 px-4 py-2 border border-gray-200 rounded-lg uppercase" maxlength="8">
+                </div>
+            </div>
+
+            <div class="flex space-x-3">
+                <button onclick="salvarEdicaoFeirante()" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition">
+                    <i class="fas fa-save mr-2"></i>Salvar Alterações
+                </button>
+                <button onclick="fecharModal('modal-editar')" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-50 flex items-center space-x-2">
+        <i class="fas fa-check-circle text-emerald-400"></i>
+        <span id="toast-message">Operação realizada com sucesso!</span>
+    </div>
+
+    <script>
+        // Estrutura de dados centralizada
+        // feirantes: { id: { dados pessoais } }
+        // feiras: { nome: [ { feiranteId, box, segmento, obs, status, historico } ] }
+        let feirantes = {}; // Cadastro central
+        let feiras = {};    // Vinculações
+        let feiraAtual = null;
+        let dataAtual = new Date().toISOString().split('T')[0];
+        let tempImportData = {};
+        let feiranteSelecionadoParaVincular = null;
+
+        // Dias da semana
+        const diasSemana = {
+            'SEGUNDA': 'Segunda-feira',
+            'TERÇA': 'Terça-feira',
+            'TERCA': 'Terça-feira',
+            'QUARTA': 'Quarta-feira',
+            'QUINTA': 'Quinta-feira',
+            'SEXTA': 'Sexta-feira',
+            'SÁBADO': 'Sábado',
+            'SABADO': 'Sábado',
+            'DOMINGO': 'Domingo'
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarDados();
+            document.getElementById('data-chamada').value = dataAtual;
+            atualizarDisplayData();
+            atualizarTudo();
+        });
+
+        function carregarDados() {
+            const dadosFeirantes = localStorage.getItem('feirantes');
+            const dadosFeiras = localStorage.getItem('feiras');
+            
+            if (dadosFeirantes) feirantes = JSON.parse(dadosFeirantes);
+            if (dadosFeiras) feiras = JSON.parse(dadosFeiras);
+            
+            console.log('Dados carregados:', Object.keys(feirantes).length, 'feirantes,', Object.keys(feiras).length, 'feiras');
+        }
+
+        function salvarDados() {
+            localStorage.setItem('feirantes', JSON.stringify(feirantes));
+            localStorage.setItem('feiras', JSON.stringify(feiras));
+        }
+
+        function atualizarTudo() {
+            atualizarDashboard();
+            renderizarGridFeiras();
+            renderizarListaFeirasGerenciamento();
+            atualizarCheckboxFeiras();
+        }
+
+        function showSection(sectionId) {
+            document.querySelectorAll('section').forEach(section => {
+                section.classList.remove('active-section');
+                section.classList.add('hidden-section');
+            });
+            
+            const secao = document.getElementById(sectionId);
+            if (secao) {
+                secao.classList.remove('hidden-section');
+                secao.classList.add('active-section');
+            }
+
+            if (sectionId === 'cadastro-feirantes') atualizarCheckboxFeiras();
+            if (sectionId === 'chamada' && feiraAtual) {
+                atualizarDisplayData();
+                atualizarFiltrosSegmento();
+                renderizarListaFeirantes();
+            }
+        }
+
+        function atualizarDisplayData() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const data = new Date(dataAtual).toLocaleDateString('pt-BR', options);
+            const display = document.getElementById('data-chamada-display');
+            if (display) display.textContent = data.charAt(0).toUpperCase() + data.slice(1);
+        }
+
+        function mudarDataChamada() {
+            dataAtual = document.getElementById('data-chamada').value;
+            atualizarDisplayData();
+            if (feiraAtual) renderizarListaFeirantes();
+        }
+
+        // Formatação
+        function formatarCPF(input) {
+            let value = input.value.replace(/\D/g, '');
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            input.value = value;
+        }
+
+        function formatarTelefone(input) {
+            let value = input.value.replace(/\D/g, '');
+            if (value.length > 11) value = value.slice(0, 11);
+            
+            if (value.length > 7) {
+                value = value.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+            } else if (value.length > 2) {
+                value = value.replace(/^(\d{2})(\d)/, '($1) $2');
+            }
+            input.value = value;
+        }
+
+        function toggleVeiculo(show) {
+            const container = document.getElementById('veiculo-placa-container');
+            if (show) container.classList.remove('hidden');
+            else container.classList.add('hidden');
+        }
+
+        function toggleEditVeiculo(show) {
+            const container = document.getElementById('edit-veiculo-placa-container');
+            if (show) container.classList.remove('hidden');
+            else container.classList.add('hidden');
+        }
+
+        // CRUD Feirantes (Cadastro Central)
+        function salvarFeirante() {
+            const nome = document.getElementById('cad-nome').value.trim();
+            const cpf = document.getElementById('cad-cpf').value.replace(/\D/g, '');
+            const telefone = document.getElementById('cad-telefone').value.replace(/\D/g, '');
+            
+            if (!nome || !cpf || !telefone) {
+                showToast('Preencha nome, CPF e telefone!', 'error');
+                return;
+            }
+
+            // Verifica CPF duplicado
+            const cpfExistente = Object.values(feirantes).find(f => f.cpf === cpf);
+            if (cpfExistente) {
+                showToast('CPF já cadastrado!', 'error');
+                return;
+            }
+
+            const id = 'F' + Date.now();
+            const temVeiculo = document.querySelector('input[name="veiculo"]:checked').value === 'sim';
+            
+            feirantes[id] = {
+                id: id,
+                nome: nome,
+                cpf: cpf,
+                tituloEleitor: document.getElementById('cad-titulo').value.trim(),
+                endereco: document.getElementById('cad-endereco').value.trim(),
+                telefone: telefone,
+                email: document.getElementById('cad-email').value.trim(),
+                temVeiculo: temVeiculo,
+                placaVeiculo: temVeiculo ? document.getElementById('cad-placa').value.toUpperCase().trim() : ''
+            };
+
+            // Vincular às feiras selecionadas
+            const checkboxes = document.querySelectorAll('input[name="feiras-vincular"]:checked');
+            checkboxes.forEach(cb => {
+                const nomeFeira = cb.value;
+                if (!feiras[nomeFeira]) feiras[nomeFeira] = [];
+                
+                // Verifica se já está vinculado
+                const jaVinculado = feiras[nomeFeira].some(f => f.feiranteId === id);
+                if (!jaVinculado) {
+                    feiras[nomeFeira].push({
+                        feiranteId: id,
+                        box: '',
+                        segmento: '',
+                        observacao: '',
+                        status: 'nao-registrado',
+                        historico: {},
+                        faltasConsecutivas: 0
+                    });
+                }
+            });
+
+            salvarDados();
+            limparFormularioFeirante();
+            showToast('Feirante cadastrado com sucesso!');
+            atualizarTudo();
+        }
+
+        function limparFormularioFeirante() {
+            document.getElementById('cad-nome').value = '';
+            document.getElementById('cad-cpf').value = '';
+            document.getElementById('cad-titulo').value = '';
+            document.getElementById('cad-endereco').value = '';
+            document.getElementById('cad-telefone').value = '';
+            document.getElementById('cad-email').value = '';
+            document.getElementById('cad-placa').value = '';
+            document.querySelector('input[name="veiculo"][value="nao"]').checked = true;
+            toggleVeiculo(false);
+            
+            // Desmarcar checkboxes
+            document.querySelectorAll('input[name="feiras-vincular"]').forEach(cb => cb.checked = false);
+        }
+
+        function atualizarCheckboxFeiras() {
+            const container = document.getElementById('checkbox-feiras');
+            const nomesFeiras = Object.keys(feiras);
+            
+            if (nomesFeiras.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-sm">Nenhuma feira cadastrada. Crie uma feira primeiro.</p>';
+                return;
+            }
+
+            container.innerHTML = nomesFeiras.map(nome => `
+                <label class="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" name="feiras-vincular" value="${nome}" class="w-4 h-4 text-emerald-600 rounded">
+                    <span class="text-sm">${nome}</span>
+                </label>
+            `).join('');
+        }
+
+        // Consulta de Feirantes
+        function consultarFeirantes() {
+            const search = (document.getElementById('consulta-search').value || '').toLowerCase();
+            const filter = document.getElementById('consulta-filter').value;
+            const container = document.getElementById('consulta-resultados');
+
+            let resultados = Object.values(feirantes);
+
+            // Filtro de busca
+            if (search) {
+                resultados = resultados.filter(f => 
+                    f.nome.toLowerCase().includes(search) ||
+                    f.cpf.includes(search) ||
+                    f.telefone.includes(search) ||
+                    (f.placaVeiculo && f.placaVeiculo.toLowerCase().includes(search))
+                );
+            }
+
+            // Filtros especiais
+            if (filter === 'com-veiculo') resultados = resultados.filter(f => f.temVeiculo);
+            if (filter === 'sem-veiculo') resultados = resultados.filter(f => !f.temVeiculo);
+            if (filter === 'vinculados') {
+                resultados = resultados.filter(f => {
+                    return Object.values(feiras).some(feira => feira.some(v => v.feiranteId === f.id));
+                });
+            }
+            if (filter === 'nao-vinculados') {
+                resultados = resultados.filter(f => {
+                    return !Object.values(feiras).some(feira => feira.some(v => v.feiranteId === f.id));
+                });
+            }
+
+            if (resultados.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-8">Nenhum feirante encontrado</p>';
+                return;
+            }
+
+            container.innerHTML = resultados.map(f => {
+                // Contar vinculações
+                const vinculacoes = [];
+                Object.entries(feiras).forEach(([nomeFeira, lista]) => {
+                    const vinculo = lista.find(v => v.feiranteId === f.id);
+                    if (vinculo) vinculacoes.push({ feira: nomeFeira, ...vinculo });
+                });
+
+                return `
+                <div class="bg-white rounded-2xl shadow-sm p-4 card-hover">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold text-lg">
+                                ${f.nome.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-800 text-lg">${f.nome}</h4>
+                                <p class="text-sm text-gray-500">CPF: ${formatarCPFDisplay(f.cpf)}</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="abrirEditarFeirante('${f.id}')" class="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm">
+                                <i class="fas fa-edit mr-1"></i>Editar
+                            </button>
+                            <button onclick="excluirFeirante('${f.id}')" class="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition text-sm">
+                                <i class="fas fa-trash mr-1"></i>Excluir
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 text-sm">
+                        <div>
+                            <span class="text-gray-400">Telefone:</span>
+                            <p class="font-medium">${formatarTelefoneDisplay(f.telefone)}</p>
+                        </div>
+                        <div>
+                            <span class="text-gray-400">E-mail:</span>
+                            <p class="font-medium">${f.email || '-'}</p>
+                        </div>
+                        <div>
+                            <span class="text-gray-400">Título:</span>
+                            <p class="font-medium">${f.tituloEleitor || '-'}</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <span class="text-gray-400 text-sm">Endereço:</span>
+                        <p class="text-sm">${f.endereco || '-'}</p>
+                    </div>
+
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-400">Veículo:</span>
+                            ${f.temVeiculo ? 
+                                `<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium"><i class="fas fa-car mr-1"></i>Sim - ${f.placaVeiculo}</span>` : 
+                                `<span class="text-sm text-gray-500">Não possui</span>`
+                            }
+                        </div>
+                    </div>
+
+                    ${vinculacoes.length > 0 ? `
+                    <div class="border-t border-gray-100 pt-3">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Vinculado às feiras:</p>
+                        <div class="flex flex-wrap gap-2">
+                            ${vinculacoes.map(v => `
+                                <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                                    ${v.feira}${v.box ? ` (Box ${v.box})` : ''}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : `
+                    <div class="border-t border-gray-100 pt-3">
+                        <p class="text-sm text-amber-600"><i class="fas fa-exclamation-triangle mr-1"></i>Não vinculado a nenhuma feira</p>
+                    </div>
+                    `}
+                </div>
+                `;
+            }).join('');
+        }
+
+        function formatarCPFDisplay(cpf) {
+            return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+        }
+
+        function formatarTelefoneDisplay(tel) {
+            if (tel.length === 11) return tel.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+            if (tel.length === 10) return tel.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+            return tel;
+        }
+
+        function abrirEditarFeirante(id) {
+            const f = feirantes[id];
+            if (!f) return;
+
+            document.getElementById('edit-id').value = id;
+            document.getElementById('edit-nome').value = f.nome;
+            document.getElementById('edit-cpf').value = formatarCPFDisplay(f.cpf);
+            document.getElementById('edit-titulo').value = f.tituloEleitor || '';
+            document.getElementById('edit-endereco').value = f.endereco || '';
+            document.getElementById('edit-telefone').value = formatarTelefoneDisplay(f.telefone);
+            document.getElementById('edit-email').value = f.email || '';
+            
+            document.querySelector(`input[name="edit-veiculo"][value="${f.temVeiculo ? 'sim' : 'nao'}"]`).checked = true;
+            toggleEditVeiculo(f.temVeiculo);
+            document.getElementById('edit-placa').value = f.placaVeiculo || '';
+
+            document.getElementById('modal-editar').classList.add('active');
+        }
+
+        function salvarEdicaoFeirante() {
+            const id = document.getElementById('edit-id').value;
+            const f = feirantes[id];
+            if (!f) return;
+
+            f.nome = document.getElementById('edit-nome').value.trim();
+            f.tituloEleitor = document.getElementById('edit-titulo').value.trim();
+            f.endereco = document.getElementById('edit-endereco').value.trim();
+            f.telefone = document.getElementById('edit-telefone').value.replace(/\D/g, '');
+            f.email = document.getElementById('edit-email').value.trim();
+            f.temVeiculo = document.querySelector('input[name="edit-veiculo"]:checked').value === 'sim';
+            f.placaVeiculo = f.temVeiculo ? document.getElementById('edit-placa').value.toUpperCase().trim() : '';
+
+            salvarDados();
+            fecharModal('modal-editar');
+            showToast('Cadastro atualizado!');
+            consultarFeirantes();
+            atualizarTudo();
+        }
+
+        function excluirFeirante(id) {
+            if (!confirm('ATENÇÃO: Isso removerá o feirante de TODAS as feiras. Deseja continuar?')) return;
+
+            delete feirantes[id];
+            
+            // Remove de todas as feiras
+            Object.keys(feiras).forEach(nomeFeira => {
+                feiras[nomeFeira] = feiras[nomeFeira].filter(v => v.feiranteId !== id);
+            });
+
+            salvarDados();
+            showToast('Feirante removido');
+            consultarFeirantes();
+            atualizarTudo();
+        }
+
+        // Modal functions
+        function fecharModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            feiranteSelecionadoParaVincular = null;
+        }
+
+        function abrirModalVincular() {
+            if (!feiraAtual) return;
+            document.getElementById('modal-vincular').classList.add('active');
+            document.getElementById('modal-search-feirante').value = '';
+            document.getElementById('modal-feirantes-encontrados').innerHTML = '';
+            document.getElementById('modal-dados-vinculo').classList.add('hidden');
+        }
+
+        function buscarFeirantesParaVincular() {
+            const search = document.getElementById('modal-search-feirante').value.toLowerCase();
+            const container = document.getElementById('modal-feirantes-encontrados');
+            
+            if (search.length < 2) {
+                container.innerHTML = '';
+                return;
+            }
+
+            // Feirantes não vinculados a esta feira
+            const vinculadosNestaFeira = feiras[feiraAtual].map(v => v.feiranteId);
+            const disponiveis = Object.values(feirantes).filter(f => 
+                !vinculadosNestaFeira.includes(f.id) &&
+                (f.nome.toLowerCase().includes(search) || f.cpf.includes(search))
+            );
+
+            if (disponiveis.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-4">Nenhum feirante disponível encontrado</p>';
+                return;
+            }
+
+            container.innerHTML = disponiveis.map(f => `
+                <div onclick="selecionarFeiranteParaVincular('${f.id}')" class="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-emerald-50 transition border-2 border-transparent hover:border-emerald-200">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-medium text-gray-800">${f.nome}</p>
+                            <p class="text-sm text-gray-500">CPF: ${formatarCPFDisplay(f.cpf)}</p>
+                        </div>
+                        <i class="fas fa-plus-circle text-emerald-500 text-xl"></i>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selecionarFeiranteParaVincular(id) {
+            feiranteSelecionadoParaVincular = id;
+            document.getElementById('modal-dados-vinculo').classList.remove('hidden');
+            document.getElementById('vinculo-box').value = '';
+            document.getElementById('vinculo-segmento').value = '';
+            document.getElementById('vinculo-obs').value = '';
+        }
+
+        function confirmarVinculacao() {
+            if (!feiranteSelecionadoParaVincular || !feiraAtual) return;
+
+            const box = document.getElementById('vinculo-box').value.trim();
+            const segmento = document.getElementById('vinculo-segmento').value.trim().toUpperCase();
+            const obs = document.getElementById('vinculo-obs').value.trim();
+
+            feiras[feiraAtual].push({
+                feiranteId: feiranteSelecionadoParaVincular,
+                box: box,
+                segmento: segmento,
+                observacao: obs,
+                status: 'nao-registrado',
+                historico: {},
+                faltasConsecutivas: 0
+            });
+
+            salvarDados();
+            fecharModal('modal-vincular');
+            showToast('Feirante vinculado à feira!');
+            renderizarListaFeirantes();
+            atualizarFiltrosSegmento();
+        }
+
+        // CRUD Feiras
+        function criarNovaFeira() {
+            const nome = document.getElementById('nova-feira-nome').value.trim();
+            const dia = document.getElementById('nova-feira-dia').value;
+            
+            if (!nome || !dia) {
+                showToast('Preencha nome e dia da semana!', 'error');
+                return;
+            }
+            
+            const nomeCompleto = `${dia} - ${nome}`;
+            
+            if (feiras[nomeCompleto]) {
+                showToast('Já existe uma feira com este nome!', 'error');
+                return;
+            }
+            
+            feiras[nomeCompleto] = [];
+            salvarDados();
+            
+            document.getElementById('nova-feira-nome').value = '';
+            document.getElementById('nova-feira-dia').value = '';
+            
+            showToast('Feira criada com sucesso!');
+            atualizarTudo();
+        }
+
+        function excluirFeira(nome) {
+            if (!confirm(`Excluir a feira "${nome}"? Os feirantes não serão excluídos, apenas desvinculados.`)) return;
+            
+            delete feiras[nome];
+            if (feiraAtual === nome) feiraAtual = null;
+            salvarDados();
+            
+            showToast('Feira excluída!');
+            atualizarTudo();
+        }
+
+        function renderizarGridFeiras() {
+            const container = document.getElementById('grid-feiras');
+            const emptyState = document.getElementById('empty-feiras');
+            const nomesFeiras = Object.keys(feiras);
+            
+            if (nomesFeiras.length === 0) {
+                container.innerHTML = '';
+                if (emptyState) emptyState.classList.remove('hidden');
+                return;
+            }
+
+            if (emptyState) emptyState.classList.add('hidden');
+
+            container.innerHTML = nomesFeiras.map(nome => {
+                const vinculos = feiras[nome] || [];
+                const presentes = vinculos.filter(v => v.status === 'presente').length;
+                const ativos = vinculos.filter(v => {
+                    const f = feirantes[v.feiranteId];
+                    return f && v.status !== 'vago';
+                }).length;
+                const percentual = ativos > 0 ? Math.round((presentes / ativos) * 100) : 0;
+                const alertas = vinculos.filter(v => (v.faltasConsecutivas || 0) >= 3).length;
+                const diaSemana = detectarDiaSemana(nome);
+
+                return `
+                <div onclick="iniciarChamada('${nome}')" class="feira-card bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                    <div class="dia-semana">${diaSemana}</div>
+                    
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 text-3xl">
+                            <i class="fas fa-store"></i>
+                        </div>
+                        ${alertas > 0 ? `
+                        <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 animate-pulse">
+                            <span class="font-bold text-sm">${alertas}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <h3 class="text-xl font-bold text-gray-800 mb-2 pr-24 line-clamp-2">${nome}</h3>
+                    
+                    <div class="space-y-2 mb-4">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500">Feirantes:</span>
+                            <span class="font-semibold text-gray-800">${vinculos.length}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500">Presentes:</span>
+                            <span class="font-semibold text-emerald-600">${presentes} de ${ativos}</span>
+                        </div>
+                    </div>
+
+                    <div class="w-full bg-gray-200 rounded-full h-3 mb-2 overflow-hidden">
+                        <div class="bg-emerald-500 h-full rounded-full" style="width: ${percentual}%"></div>
+                    </div>
+
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-lg font-bold text-emerald-600">${percentual}%</span>
+                        <span class="text-xs text-gray-400">presença</span>
+                    </div>
+
+                    <div class="pt-4 border-t border-gray-100">
+                        <button class="w-full py-3 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition flex items-center justify-center space-x-2">
+                            <i class="fas fa-play-circle"></i>
+                            <span>Iniciar Chamada</span>
+                        </button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function detectarDiaSemana(nome) {
+            const nomeUpper = nome.toUpperCase();
+            for (let [chave, valor] of Object.entries(diasSemana)) {
+                if (nomeUpper.includes(chave)) return valor;
+            }
+            return 'Data não especificada';
+        }
+
+        function renderizarListaFeirasGerenciamento() {
+            const container = document.getElementById('lista-feiras-gerenciamento');
+            const nomesFeiras = Object.keys(feiras);
+            
+            if (nomesFeiras.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-4">Nenhuma feira cadastrada</p>';
+                return;
+            }
+
+            container.innerHTML = nomesFeiras.map(nome => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div>
+                        <h4 class="font-semibold text-gray-800">${nome}</h4>
+                        <p class="text-sm text-gray-500">${feiras[nome].length} feirantes vinculados</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="iniciarChamada('${nome}'); showSection('chamada');" class="px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition text-sm">
+                            <i class="fas fa-play mr-1"></i>Chamada
+                        </button>
+                        <button onclick="excluirFeira('${nome}')" class="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition text-sm">
+                            <i class="fas fa-trash mr-1"></i>Excluir
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function iniciarChamada(nome) {
+            feiraAtual = nome;
+            const nomeDisplay = document.getElementById('feira-atual-nome');
+            if (nomeDisplay) nomeDisplay.textContent = nome;
+            showSection('chamada');
+        }
+
+        // Chamada Functions
+        function atualizarFiltrosSegmento() {
+            if (!feiraAtual || !feiras[feiraAtual]) return;
+            
+            const segmentos = [...new Set(feiras[feiraAtual].map(v => v.segmento).filter(Boolean))];
+            const select = document.getElementById('filter-segmento');
+            select.innerHTML = '<option value="todos">Todos os Segmentos</option>' +
+                segmentos.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+
+        function renderizarListaFeirantes() {
+            if (!feiraAtual || !feiras[feiraAtual]) return;
+
+            const container = document.getElementById('lista-feirantes');
+            const searchTerm = (document.getElementById('search-feirante').value || '').toLowerCase();
+            const filterSegmento = document.getElementById('filter-segmento').value;
+            const filterStatus = document.getElementById('filter-status').value;
+
+            let vinculos = feiras[feiraAtual].filter(v => {
+                const f = feirantes[v.feiranteId];
+                if (!f) return false; // Feirante não existe mais
+                
+                const matchSearch = f.nome.toLowerCase().includes(searchTerm) || 
+                                   v.box.toLowerCase().includes(searchTerm) ||
+                                   v.segmento.toLowerCase().includes(searchTerm);
+                const matchSegmento = filterSegmento === 'todos' || v.segmento === filterSegmento;
+                const matchStatus = filterStatus === 'todos' || v.status === filterStatus;
+                return matchSearch && matchSegmento && matchStatus;
+            });
+
+            // Ordena por box
+            vinculos.sort((a, b) => {
+                const boxA = parseInt(a.box) || 999;
+                const boxB = parseInt(b.box) || 999;
+                return boxA - boxB;
+            });
+
+            if (vinculos.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="fas fa-search text-4xl mb-3"></i>
+                        <p>Nenhum feirante vinculado a esta feira</p>
+                        <button onclick="abrirModalVincular()" class="mt-4 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition">
+                            <i class="fas fa-plus mr-2"></i>Vincular Feirante
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = vinculos.map(v => {
+                const f = feirantes[v.feiranteId];
+                const alerta3Faltas = (v.faltasConsecutivas || 0) >= 3;
+                const isAfastado = v.observacao.toUpperCase().includes('AFASTAMENTO');
+                
+                return `
+                <div class="bg-white rounded-2xl shadow-sm p-4 card-hover ${alerta3Faltas ? 'alerta-3-faltas' : 'border-l-4 ' + getStatusBorderColor(v.status)}">
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                        <div class="flex items-center space-x-3 flex-1 min-w-0">
+                            <div class="w-12 h-12 rounded-full ${getStatusBgColor(v.status)} flex items-center justify-center text-white font-bold text-lg shrink-0">
+                                ${f.nome.charAt(0).toUpperCase()}
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h4 class="font-semibold text-gray-800 text-lg truncate">${f.nome}</h4>
+                                    ${alerta3Faltas ? '<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold animate-pulse">3 FALTAS</span>' : ''}
+                                    ${isAfastado ? '<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">AFASTADO</span>' : ''}
+                                    ${f.temVeiculo ? `<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs" title="Placa: ${f.placaVeiculo}"><i class="fas fa-car mr-1"></i>${f.placaVeiculo}</span>` : ''}
+                                </div>
+                                <div class="flex items-center gap-2 mt-1 flex-wrap text-sm">
+                                    ${v.box ? `<span class="box-badge">Box ${v.box}</span>` : ''}
+                                    ${v.segmento ? `<span class="text-gray-500">${v.segmento}</span>` : ''}
+                                    <span class="text-gray-400"><i class="fas fa-phone mr-1"></i>${formatarTelefoneDisplay(f.telefone)}</span>
+                                </div>
+                                ${v.observacao ? `<p class="text-xs text-gray-400 mt-1 italic">${v.observacao}</p>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2 shrink-0">
+                            ${!isAfastado ? `
+                            <button onclick="registrarChamada('${v.feiranteId}', 'presente')" 
+                                    class="w-12 h-12 rounded-xl border-2 ${v.status === 'presente' ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-500 hover:text-white'} transition flex items-center justify-center font-bold"
+                                    title="Presente">
+                                P
+                            </button>
+                            <button onclick="registrarChamada('${v.feiranteId}', 'falta')" 
+                                    class="w-12 h-12 rounded-xl border-2 ${v.status === 'falta' ? 'border-red-500 bg-red-500 text-white' : 'border-red-200 text-red-600 hover:bg-red-500 hover:text-white'} transition flex items-center justify-center font-bold"
+                                    title="Falta">
+                                F
+                            </button>
+                            ` : `
+                            <span class="px-3 py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-700">
+                                AFASTADO
+                            </span>
+                            `}
+                            <button onclick="desvincularFeirante('${v.feiranteId}')" class="w-10 h-10 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition" title="Remover desta feira">
+                                <i class="fas fa-unlink"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function getStatusBorderColor(status) {
+            const colors = {
+                'presente': 'border-emerald-500',
+                'falta': 'border-red-500',
+                'afastado': 'border-amber-500',
+                'nao-registrado': 'border-gray-300'
+            };
+            return colors[status] || 'border-gray-300';
+        }
+
+        function getStatusBgColor(status) {
+            const colors = {
+                'presente': 'bg-emerald-500',
+                'falta': 'bg-red-500',
+                'afastado': 'bg-amber-500',
+                'nao-registrado': 'bg-gray-400'
+            };
+            return colors[status] || 'bg-gray-400';
+        }
+
+        function registrarChamada(feiranteId, status) {
+            if (!feiraAtual || !feiras[feiraAtual]) return;
+            
+            const vinculo = feiras[feiraAtual].find(v => v.feiranteId === feiranteId);
+            if (vinculo) {
+                vinculo.status = status;
+                vinculo.historico[dataAtual] = status;
+                vinculo.faltasConsecutivas = calcularFaltasConsecutivas(vinculo.historico);
+                
+                salvarDados();
+                renderizarListaFeirantes();
+                atualizarDashboard();
+                
+                const f = feirantes[feiranteId];
+                showToast(`${f.nome}: ${status === 'presente' ? 'Presente' : 'Falta'}`);
+            }
+        }
+
+        function desvincularFeirante(feiranteId) {
+            if (!confirm('Remover este feirante desta feira? O cadastro não será excluído.')) return;
+            
+            feiras[feiraAtual] = feiras[feiraAtual].filter(v => v.feiranteId !== feiranteId);
+            salvarDados();
+            
+            showToast('Feirante removido desta feira');
+            renderizarListaFeirantes();
+            atualizarDashboard();
+        }
+
+        function calcularFaltasConsecutivas(historico) {
+            const valores = Object.values(historico);
+            let maxConsecutivas = 0;
+            let atual = 0;
+            
+            for (let val of valores) {
+                if (val === 'falta') {
+                    atual++;
+                    maxConsecutivas = Math.max(maxConsecutivas, atual);
+                } else {
+                    atual = 0;
+                }
+            }
+            return maxConsecutivas;
+        }
+
+        function marcarTodos(status) {
+            if (!feiraAtual || !feiras[feiraAtual]) return;
+            if (!confirm(`Marcar TODOS como ${status === 'presente' ? 'PRESENTES' : 'FALTAS'}?`)) return;
+
+            feiras[feiraAtual].forEach(v => {
+                if (!v.observacao.toUpperCase().includes('AFASTAMENTO')) {
+                    v.status = status;
+                    v.historico[dataAtual] = status;
+                    v.faltasConsecutivas = calcularFaltasConsecutivas(v.historico);
+                }
+            });
+            
+            salvarDados();
+            renderizarListaFeirantes();
+            atualizarDashboard();
+            showToast(`Todos marcados como ${status === 'presente' ? 'Presentes' : 'Faltas'}`);
+        }
+
+        function filtrarFeirantes() {
+            renderizarListaFeirantes();
+        }
+
+        // Dashboard
+        function atualizarDashboard() {
+            const totalFeirantes = Object.keys(feirantes).length;
+            const totalFeiras = Object.keys(feiras).length;
+            
+            let totalPresentes = 0;
+            let totalFaltas = 0;
+
+            Object.values(feiras).forEach(lista => {
+                lista.forEach(v => {
+                    if (v.status === 'presente') totalPresentes++;
+                    if (v.status === 'falta') totalFaltas++;
+                });
+            });
+
+            document.getElementById('dash-total-feirantes').textContent = totalFeirantes;
+            document.getElementById('dash-total-feiras').textContent = totalFeiras;
+            document.getElementById('dash-presentes').textContent = totalPresentes;
+            document.getElementById('dash-faltas').textContent = totalFaltas;
+
+            // Resumo por feira
+            const resumoContainer = document.getElementById('resumo-feiras-dashboard');
+            if (totalFeiras === 0) {
+                resumoContainer.innerHTML = '<p class="text-gray-400 text-center py-4">Nenhuma feira cadastrada</p>';
+            } else {
+                resumoContainer.innerHTML = Object.entries(feiras).map(([nome, vinculos]) => {
+                    const ativos = vinculos.filter(v => {
+                        const f = feirantes[v.feiranteId];
+                        return f && !v.observacao.toUpperCase().includes('AFASTAMENTO');
+                    }).length;
+                    const presentes = vinculos.filter(v => v.status === 'presente').length;
+                    const percentual = ativos > 0 ? Math.round((presentes / ativos) * 100) : 0;
+                    
+                    return `
+                    <div onclick="iniciarChamada('${nome}'); showSection('chamada');" class="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition">
+                        <div>
+                            <p class="font-medium text-gray-800">${nome}</p>
+                            <p class="text-xs text-gray-500">${vinculos.length} feirantes</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-bold text-emerald-600">${percentual}%</span>
+                            <div class="w-24 bg-gray-200 rounded-full h-2 mt-1">
+                                <div class="bg-emerald-500 h-full rounded-full" style="width: ${percentual}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Export
+        function exportarRelatorio() {
+            if (Object.keys(feirantes).length === 0) {
+                showToast('Nenhum dado para exportar!', 'error');
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+            
+            // Aba 1: Cadastro de Feirantes
+            const dadosFeirantes = Object.values(feirantes).map(f => ({
+                'NOME': f.nome,
+                'CPF': formatarCPFDisplay(f.cpf),
+                'TÍTULO DE ELEITOR': f.tituloEleitor || '',
+                'ENDEREÇO': f.endereco || '',
+                'TELEFONE': formatarTelefoneDisplay(f.telefone),
+                'EMAIL': f.email || '',
+                'POSSUI VEÍCULO': f.temVeiculo ? 'SIM' : 'NÃO',
+                'PLACA': f.placaVeiculo || ''
+            }));
+            
+            const ws1 = XLSX.utils.json_to_sheet(dadosFeirantes);
+            XLSX.utils.book_append_sheet(wb, ws1, 'Cadastro Feirantes');
+
+            // Aba 2: Vinculações por Feira
+            Object.entries(feiras).forEach(([nome, vinculos]) => {
+                const dados = vinculos.map(v => {
+                    const f = feirantes[v.feiranteId];
+                    return {
+                        'NOME': f ? f.nome : 'NÃO ENCONTRADO',
+                        'CPF': f ? formatarCPFDisplay(f.cpf) : '',
+                        'BOX': v.box,
+                        'SEGMENTO': v.segmento,
+                        'TELEFONE': f ? formatarTelefoneDisplay(f.telefone) : '',
+                        'STATUS': v.status === 'presente' ? 'P' : (v.status === 'falta' ? 'F' : '-'),
+                        'FALTAS CONSECUTIVAS': v.faltasConsecutivas || 0,
+                        'OBSERVAÇÃO': v.observacao
+                    };
+                });
+                
+                const ws = XLSX.utils.json_to_sheet(dados);
+                XLSX.utils.book_append_sheet(wb, ws, nome.substring(0, 31));
+            });
+            
+            const dataStr = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `Cadastro_Feirantes_${dataStr}.xlsx`);
+            
+            showToast('Relatório exportado com sucesso!');
+        }
+
+        function limparDados() {
+            if (!confirm('ATENÇÃO: Isso apagará TODOS os dados permanentemente! Deseja continuar?')) return;
+            feirantes = {};
+            feiras = {};
+            feiraAtual = null;
+            localStorage.removeItem('feirantes');
+            localStorage.removeItem('feiras');
+            atualizarTudo();
+            showToast('Todos os dados foram removidos');
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            
+            toastMessage.textContent = message;
+            toast.className = `fixed bottom-24 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-lg transition-opacity duration-300 pointer-events-none z-50 flex items-center space-x-2 ${type === 'error' ? 'bg-red-600' : 'bg-gray-800'} text-white`;
+            
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 3000);
+        }
+
+        // Fechar modais ao clicar fora
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) fecharModal(modal.id);
+            });
+        });
+    </script>
+</body>
+</html>
